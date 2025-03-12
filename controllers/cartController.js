@@ -85,3 +85,59 @@ export const viewCart = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// view the cart with pagination
+export const viewCart = async (req, res) => {
+  const { page = 1, limit = 10 } = req.query; // Default page is 1 and limit is 10 items per page
+  
+  try {
+    const cart = await Cart.findOne({ user: req.user.id })
+      .populate('items.product')
+      .lean(); // Fetch the cart and populate product details
+
+    if (!cart || cart.items.length === 0) {
+      return res.status(404).json({ message: 'Your cart is empty' });
+    }
+
+    // Implementing pagination
+    const totalItems = cart.items.length;
+    const totalPages = Math.ceil(totalItems / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = Math.min(startIndex + Number(limit), totalItems);
+
+    // Slicing items for pagination
+    const paginatedItems = cart.items.slice(startIndex, endIndex);
+
+    // Responding with paginated cart details
+    res.status(200).json({
+      currentPage: Number(page),
+      totalPages,
+      totalItems,
+      itemsPerPage: Number(limit),
+      items: paginatedItems
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+// view 2
+export const viewCart = async (req, res) => {
+  const { page = 1, limit = 10 } = req.query;
+  try {
+    const cart = await Cart.findOne({ user: req.user.id }).populate('items.product').lean();
+    if (!cart || !cart.items.length) return res.status(404).json({ message: 'Your cart is empty' });
+
+    const totalItems = cart.items.length;
+    const paginatedItems = cart.items.slice((page - 1) * limit, page * limit);
+
+    res.status(200).json({
+      currentPage: Number(page),
+      totalPages: Math.ceil(totalItems / limit),
+      totalItems,
+      items: paginatedItems
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
