@@ -123,21 +123,45 @@ export const viewCart = async (req, res) => {
 };
 // view 2
 export const viewCart = async (req, res) => {
-  const { page = 1, limit = 10 } = req.query;
   try {
-    const cart = await Cart.findOne({ user: req.user.id }).populate('items.product').lean();
-    if (!cart || !cart.items.length) return res.status(404).json({ message: 'Your cart is empty' });
+    const page = parseInt(req.query.page) || 1; 
+    const limit = parseInt(req.query.limit) || 10; 
+    const skip = (page - 1) * limit;
 
-    const totalItems = cart.items.length;
-    const paginatedItems = cart.items.slice((page - 1) * limit, page * limit);
+    const cart = await Cart.aggregate([
+      { $match: { user: req.user.id } },
+      { $unwind: "$items" },
+      { $lookup: {
+          from: "products",
+          localField: "items.product",
+          foreignField: "_id",
+          as: "productDetails"
+      }},
+      { $unwind: "$productDetails" },
+      { $project: {
+          _id: 0,
+          "items.product": 1,
+          "items.quantity": 1,
+          "productDetails.productName": 1,
+          "productDetails.price": 1,
+          "productDetails.retailerDetails": 1
+      }},
+      { $skip: skip },
+      { $limit: limit }
+    ]);
+
+    if (!cart || cart.length === 0) {
+      return res.status(404).json({ message: 'Your cart is empty' });
+    }
 
     res.status(200).json({
-      currentPage: Number(page),
-      totalPages: Math.ceil(totalItems / limit),
-      totalItems,
-      items: paginatedItems
+      status: true,
+      currentPage: page,
+      items: cart
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 };
+
