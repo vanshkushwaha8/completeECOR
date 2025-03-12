@@ -135,4 +135,65 @@ export const getAllProducts = async (req, res) => {
     res.status(500).json({ status: false, message: 'Server error' });
   }
 };
+export const getAllProducts = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1; 
+    const limit = parseInt(req.query.limit) || 10; 
+    const skip = (page - 1) * limit;
+
+    const totalProducts = await Product.countDocuments({ status: 'available' });
+
+    const data = {
+      status: true,
+      currentPage: page,
+      totalPages: Math.ceil(totalProducts / limit),
+      totalProducts,
+      products: await Product.aggregate([
+        { $match: { status: 'available' } },
+        { $skip: skip },
+        { $limit: limit },
+        { $project: { 
+            _id: 0, 
+            productName: 1, 
+            price: 1, 
+            retailerDetails: 1 
+        }}
+      ])
+    };
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ status: false, message: 'Server error' });
+  }
+};
+
+export const getAllProducts = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1; 
+    const limit = parseInt(req.query.limit) || 10; 
+    const skip = (page - 1) * limit;
+
+    const [products, totalProducts] = await Promise.all([
+      Product.aggregate([
+        { $match: { status: 'available' } },
+        { $skip: skip },
+        { $limit: limit },
+        { $project: { 
+            _id: 0, 
+            productName: 1, 
+            price: 1, 
+            retailerDetails: 1 
+        }}
+      ]),
+      Product.countDocuments({ status: 'available' })
+    ]);
+
+    const totalPages = Math.ceil(totalProducts / limit);
+
+    res.json({status: true,currentPage: page, totalPages, totalProducts,products
+    });
+  } catch (error) {
+    res.status(500).json({ status: false, message: 'Server error' });
+  }
+};
 
