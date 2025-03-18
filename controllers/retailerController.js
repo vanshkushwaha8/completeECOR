@@ -204,3 +204,127 @@ exports.permanentDeleteRecord = async (req, res) => {
     res.status(500).json({ status: false, message: error.message, data: null });
   }
 };
+
+
+// Update Banner
+exports.updateRecord = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        status: false,
+        errors: errors.array(),
+        message: "Validation error",
+        data: null,
+      });
+    }
+
+    const { title, discount } = req.body;
+
+    // Purani image ko database se dhundho
+    const img = await banners.findOne({ _id: req.params.id });
+    if (!img) {
+      return res.status(404).json({ status: false, message: "Banner not found", data: null });
+    }
+
+    // Jo folder mein image padi hai uska path banao
+    const oldImagePath = path.join(__dirname, "../../../../public/banners", img.imageURL);
+
+    // Agar nayi file upload hui hai toh purani file delete kar do
+    if (req.file) {
+      if (fs.existsSync(oldImagePath)) {
+        fs.unlinkSync(oldImagePath); // Purani image ko delete kar diya
+      }
+    }
+
+    // Nayi file ka naam ya purani file ka naam rakhna
+    const imageOriginalName = req.file ? req.file.originalname : img.imageURL;
+
+    // Nayi file ko save karna
+    if (req.file) {
+      const newImagePath = path.join(__dirname, "../../../../public/banners", imageOriginalName);
+      fs.renameSync(req.file.path, newImagePath); // Nayi file ko rename kar ke purani wali ke naam par rakh do
+    }
+
+    // Record update karna database mein
+    const updatedRecord = await banners.findByIdAndUpdate(
+      req.params.id,
+      { title, discount, imageURL: imageOriginalName },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedRecord) {
+      return res.status(404).json({ status: false, message: "Banner not found", data: null });
+    }
+
+    return res.status(200).json({
+      status: true,
+      message: "Banner updated successfully",
+      data: bannersSingleCollection(updatedRecord),
+    });
+
+  } catch (error) {
+    logger.error(`BannersController - Request ${JSON.stringify(req.params)} Error: ${error.message}`);
+    res.status(500).json({ status: false, message: error.message, data: null });
+  }
+};
+
+// Update Banner
+exports.updateRecord = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        status: false,
+        errors: errors.array(),
+        message: "Validation error",
+        data: null,
+      });
+    }
+
+    const { title, discount } = req.body;
+
+    // Database se record find karen
+    const existingRecord = await banners.findById(req.params.id);
+    if (!existingRecord) {
+      return res.status(404).json({ status: false, message: "Banner not found", data: null });
+    }
+
+    // Agar naya image upload ho raha hai
+    if (req.file) {
+      const oldImagePath = path.join(__dirname, "../../../../public/banners", existingRecord.imageURL);
+      
+      // Agar purani file exist kar rahi hai toh use delete kar do
+      if (fs.existsSync(oldImagePath)) {
+        fs.unlinkSync(oldImagePath);
+      }
+
+      // Naya image ko save karna
+      const newImageOriginalName = req.file.originalname;
+      const newImagePath = path.join(__dirname, "../../../../public/banners", newImageOriginalName);
+
+      fs.renameSync(req.file.path, newImagePath); // Naye image ko uski jagah par rakh do
+
+      // Database mein updated record save karna
+      existingRecord.title = title;
+      existingRecord.discount = discount;
+      existingRecord.imageURL = newImageOriginalName; // Naya image URL update kar do
+    } else {
+      // Agar image upload nahi ho raha toh sirf title aur discount update ho
+      existingRecord.title = title;
+      existingRecord.discount = discount;
+    }
+
+    await existingRecord.save();
+
+    return res.status(200).json({
+      status: true,
+      message: "Banner updated successfully",
+      data: bannersSingleCollection(existingRecord),
+    });
+
+  } catch (error) {
+    logger.error(`BannersController - Request ${JSON.stringify(req.params)} Error: ${error.message}`);
+    res.status(500).json({ status: false, message: error.message, data: null });
+  }
+};
