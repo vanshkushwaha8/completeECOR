@@ -85,3 +85,62 @@ export const logoutController = async (req, res) => {
     return responseHandler.error(res, 'Failed to log out');
   }
 };
+
+
+const Joi = require('joi');
+
+const bannerValidationSchema = Joi.object({
+    title: Joi.string()
+        .min(3)
+        .max(100)
+        .required()
+        .messages({
+            'string.base': 'Title should be a type of text.',
+            'string.empty': 'Title is required.',
+            'string.min': 'Title must be at least 3 characters long.',
+            'string.max': 'Title cannot exceed 100 characters.'
+        }),
+
+    discount: Joi.string()
+        .pattern(/^\d+%$/)
+        .required()
+        .messages({
+            'string.empty': 'Discount is required.',
+            'string.pattern.base': 'Discount must be a percentage, e.g., "20%".'
+        }),
+
+    imageURL: Joi.string()
+        .uri()
+        .pattern(/^https?:\/\/.*\.(jpeg|jpg|png|gif|webp)$/i)
+        .messages({
+            'string.uri': 'Image URL must be a valid URL.',
+            'string.pattern.base': 'Please provide a valid image URL ending with jpeg, jpg, png, gif, or webp.'
+        })
+});
+
+module.exports = { bannerValidationSchema };
+
+
+
+const { bannerValidationSchema } = require('./banner.validation');
+const Banner = require('./banner.model');
+
+const createBanner = async (req, res) => {
+    try {
+        // Validate the incoming data
+        const { error } = bannerValidationSchema.validate(req.body);
+
+        if (error) {
+            return res.status(400).json({ message: error.details[0].message });
+        }
+
+        // Save the validated data to the database
+        const banner = new Banner(req.body);
+        await banner.save();
+        res.status(201).json({ message: 'Banner created successfully.', banner });
+    } catch (err) {
+        res.status(500).json({ message: 'Internal server error.', error: err.message });
+    }
+};
+
+module.exports = { createBanner };
